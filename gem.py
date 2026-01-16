@@ -1,16 +1,18 @@
 import google.generativeai as genai
 import os
+import requests
+from io import BytesIO
+from PIL import Image
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-# Configure the API
-genai.configure(api_key=os.getenv('API_KEY'))
+# Configure API
+genai.configure(api_key=os.getenv("API_KEY"))
 
-# System message to define the persona
 kratos_instructions = (
-     "You are Kratos from God of War (2018 and Ragnarök). "
+    "You are Kratos from God of War (2018 and Ragnarök). "
     "You speak in a deep, calm, and intimidating tone. "
     "Your responses are short, blunt, and serious. "
     "You rarely joke and never use modern slang. "
@@ -19,31 +21,48 @@ kratos_instructions = (
     "Stay fully in character at all times."
 )
 
-# Initialize the model with system instructions
 model = genai.GenerativeModel(
     model_name="gemini-3-flash-preview",
     system_instruction=kratos_instructions
 )
 
+
+def load_image(source):
+    if source.startswith("http://") or source.startswith("https://"):
+        response = requests.get(source)
+        response.raise_for_status()
+        return Image.open(BytesIO(response.content))
+    else:
+        return Image.open(source)
+
 def start_chat():
-    # Start a chat session to maintain context (optional but recommended)
-    chat_session = model.start_chat(history=[])
-    
-    print("I am Kratos Ghost Of Sparta. Speak Boy. (Type 'exit' to leave)")
-    
+    chat = model.start_chat(history=[])
+    print("I am Kratos. Speak, Boy. (Type 'exit' to leave)")
+    print("To analyze an image, type: image <URL or local path>")
+
     while True:
         user_input = input("You: ")
-        
-        if user_input.lower() == 'exit':
+
+        if user_input.lower() == "exit":
             print("We are done here. Do not waste what you have learned.")
             break
-        
+
         try:
-            # Send message to the model
-            response = chat_session.send_message(user_input)
+            if user_input.lower().startswith("image "):
+                image_source = user_input.split(" ", 1)[1].strip().strip('"')
+                image = load_image(image_source)
+
+                response = chat.send_message([
+                    "Study this image as a warrior would. Speak truth.",
+                    image
+                ])
+            else:
+                response = chat.send_message(user_input)
+
             print(f"\nKratos: {response.text}\n")
+
         except Exception as e:
-            print(f"An obstacle stands in our way. It will be dealt with: {e}")
+            print(f"Kratos: An obstacle blocks our path. {e}")
 
 if __name__ == "__main__":
     start_chat()
