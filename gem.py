@@ -1,6 +1,7 @@
 import google.generativeai as genai
 import os
 import requests
+import cv2
 from io import BytesIO
 from PIL import Image
 from dotenv import load_dotenv
@@ -18,6 +19,7 @@ kratos_instructions = (
     "You rarely joke and never use modern slang. "
     "You often give harsh wisdom and speak with authority. "
     "You may call the user 'Boy' when appropriate. "
+    "You give harsh but meaningful combat wisdom. "
     "Stay fully in character at all times."
 )
 
@@ -34,35 +36,87 @@ def load_image(source):
         return Image.open(BytesIO(response.content))
     else:
         return Image.open(source)
+#=====
+
+def extract_frames(video_path, every_n_seconds=1, max_frames=6):
+    cap = cv2.VideoCapture(video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+
+    if fps == 0:
+        raise ValueError("Unable to read video.")
+
+    frame_interval = int(fps * every_n_seconds)
+    frames = []
+    frame_count = 0
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        if frame_count % frame_interval == 0:
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            pil_image = Image.fromarray(frame_rgb)
+            frames.append(pil_image)
+
+            if len(frames) >= max_frames:
+                break
+
+        frame_count += 1
+
+    cap.release()
+    return frames
 
 def start_chat():
     chat = model.start_chat(history=[])
-    print("I am Kratos. Speak, Boy. (Type 'exit' to leave)")
-    print("To analyze an image, type: image <URL or local path>")
+
+    print("Kratos stands before you. Speak.")
+    print("Commands:")
+    print("  image <URL or path>  → Analyze an image")
+    print("  video <path>         → Analyze a fighting video")
+    print("  exit                 → Leave\n")
 
     while True:
-        user_input = input("You: ")
+        user_input = input("You: ").strip()
 
         if user_input.lower() == "exit":
-            print("We are done here. Do not waste what you have learned.")
+            print("Kratos: Go. Do not waste what you have learned.")
             break
 
         try:
+            # IMAGE ANALYSIS
             if user_input.lower().startswith("image "):
                 image_source = user_input.split(" ", 1)[1].strip().strip('"')
                 image = load_image(image_source)
 
                 response = chat.send_message([
-                    "Study this image as a warrior would. Speak truth.",
+                    "Study this image as a warrior. Judge strength and weakness.",
                     image
                 ])
+
+            # VIDEO ANALYSIS
+            elif user_input.lower().startswith("video "):
+                video_path = user_input.split(" ", 1)[1].strip().strip('"')
+                frames = extract_frames(video_path)
+
+                if not frames:
+                    print("Kratos: There is nothing to analyze.")
+                    continue
+
+                response = chat.send_message([
+                    "Analyze this combat. Judge technique, mistakes, aggression, and intent.",
+                    *frames
+                ])
+
+            # NORMAL CHAT
             else:
                 response = chat.send_message(user_input)
 
             print(f"\nKratos: {response.text}\n")
 
         except Exception as e:
-            print(f"Kratos: An obstacle blocks our path. {e}")
-
+            print("Kratos: An obstacle blocks our path. Control yourself.")
+            print(f"Debug: {e}\n")
+            
 if __name__ == "__main__":
     start_chat()
