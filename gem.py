@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configure API
+print("Using API key:", os.getenv("API_KEY"))
 genai.configure(api_key=os.getenv("API_KEY"))
 
 kratos_instructions = (
