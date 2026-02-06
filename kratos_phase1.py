@@ -44,13 +44,16 @@ def create_enemy(room):
     if room % 5 == 0:
         boss_pool = GREEK_BOSSES + NORSE_BOSSES
         boss = random.choice(boss_pool).copy()
-        kratos_say(f"A god stands before you. {boss['name']}.")
         boss["is_boss"] = True
+        kratos_say(f"A god stands before you. {boss['name']}.")
         return boss
 
     enemy = random.choice(ENEMIES).copy()
     enemy["health"] += room * 3
-    enemy["attack"] = (enemy["attack"][0] + room // 2, enemy["attack"][1] + room // 2)
+    enemy["attack"] = (
+        enemy["attack"][0] + room // 2,
+        enemy["attack"][1] + room // 2
+    )
     enemy["is_boss"] = False
     return enemy
 
@@ -117,6 +120,10 @@ def combat(player):
         kratos_say("This is where your story ends.")
         return False
 
+    if enemy.get("is_boss"):
+        player["gods_killed"] += 1
+        kratos_say(f"A god has fallen. Total gods slain: {player['gods_killed']}")
+
     heal = random.randint(10, 18)
     player["health"] = min(PLAYER_MAX_HEALTH, player["health"] + heal)
     player["rage"] = max(0, player["rage"] - 2)
@@ -124,12 +131,28 @@ def combat(player):
     kratos_say(f"{enemy['name']} is defeated. You recover {heal} health.")
     return True
 
+def save_legacy(room, gods_killed):
+    try:
+        with open("legacy.txt", "r") as f:
+            best_room, best_gods = map(int, f.read().split(","))
+    except:
+        best_room, best_gods = 0, 0
+
+    new_record = False
+    if room > best_room:
+        with open("legacy.txt", "w") as f:
+            f.write(f"{room},{gods_killed}")
+        new_record = True
+
+    return best_room, best_gods, new_record
+
 def game():
     player = {
         "health": PLAYER_MAX_HEALTH,
         "rage": 0,
         "room": 1,
-        "weapon": choose_weapon()
+        "weapon": choose_weapon(),
+        "gods_killed": 0
     }
 
     kratos_say("The trial begins. It ends only in death.")
@@ -139,7 +162,17 @@ def game():
             break
         player["room"] += 1
 
-    kratos_say(f"You fell in room {player['room']}. Remember this.")
+    best_room, best_gods, new_record = save_legacy(
+        player["room"],
+        player["gods_killed"]
+    )
+
+    kratos_say(f"You fell in room {player['room']}.")
+    kratos_say(f"Gods slain: {player['gods_killed']}")
+    kratos_say(f"Best run: Room {best_room} | Gods slain: {best_gods}")
+
+    if new_record:
+        kratos_say("A new legacy is carved in blood.")
 
 if __name__ == "__main__":
     game()
